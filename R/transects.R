@@ -15,8 +15,8 @@
 #'
 #' @examples
 #' \dontrun{
-#' line <- system.file('inst', 'bg_line.shp', package = 'remr')
-#' ele <- system.file('inst', 'bg_ele.tif', package = 'remr')
+#' line <- sf::read_sf(system.file('shape', 'bg_line.shp', package = 'remr'))
+#' ele <- terra::rast(system.file('raster', 'bg_ele.tif', package = 'remr'))
 #'
 #' rem <- get_transects(line, ele, distance = 100, length = 500)
 #'
