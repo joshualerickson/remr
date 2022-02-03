@@ -15,8 +15,10 @@
 #'
 #' @examples
 #' \dontrun{
-#' line <- sf::read_sf(system.file('shape', 'bg_line.shp', package = 'remr'))
-#' ele <- terra::rast(system.file('raster', 'bg_ele.tif', package = 'remr'))
+#' line <- mapedit::drawFeatures() %>%
+#' sf::st_transform(32612)
+#' ele <- elevatr::get_elev_raster(line, z = 13)
+#' terra::crs(ele) <- '+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs'
 #'
 #' rem <- get_transects(line, ele, distance = 100, length = 500)
 #'

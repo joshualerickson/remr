@@ -24,3 +24,7 @@ Imports:
     terra,
     vctrs,
     wk
+Suggest:
+    knitr,
+    mapedit,
+    elevatr

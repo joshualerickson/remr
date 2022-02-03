@@ -26,8 +26,10 @@ Be aware of your crs as this will affect the length and distance arguments.
 }
 \examples{
 \dontrun{
-line <- system.file('inst', 'bg_line.shp', package = 'remr')
-ele <- system.file('inst', 'bg_ele.tif', package = 'remr')
+line <- mapedit::drawFeatures() \%>\%
+sf::st_transform(32612)
+ele <- elevatr::get_elev_raster(line, z = 13)
+terra::crs(ele) <- '+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs'
 
 rem <- get_transects(line, ele, distance = 100, length = 500)
 
