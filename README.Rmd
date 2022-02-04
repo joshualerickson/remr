@@ -20,12 +20,17 @@ knitr::opts_chunk$set(
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
 
-The goal of `remr` is to get transects along a linestring so that you can then perform a Relative Elevation Model. 
+The goal of `remr` is to get transects along a linestring so that you can then perform a Relative Elevation Model. Thanks to [paleolimbot](https://gist.github.com/paleolimbot/d24df1a288f355f89b69eb664dc54882?permalink_comment_id=4052200#gistcomment-4052200) this process is now in a function!
+
+## Contributions  
+
+Contributions are welcome! Please if you have any ideas or recommendations submit an issue. Thanks. 
 
 ## Installation
 
 
-And the development version from [GitHub](https://github.com/) with:
+To install the development version of the `remr` package, you can
+install directly from [GitHub](https://github.com/):
 
 ``` r
 # install.packages("devtools")
@@ -33,7 +38,7 @@ devtools::install_github("joshualerickson/remr")
 ```
 ## Example
 
-This is a basic example which shows you how to solve a common problem:
+This is a basic example which shows you how to solve a common problem: getting transects along a linestring and then extracting points on the linestring and transects.
 
 ```{r, eval=FALSE}
 library(remr)
@@ -45,7 +50,7 @@ terra::crs(ele) <- '+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs'
 
 rem <- get_transects(line, ele, distance = 100, length = 500)
 
-terra::plot(ele_crop)
+terra::plot(ele)
 plot(line$geometry, add = TRUE)
 plot(rem$geometry, add = TRUE)
 ```

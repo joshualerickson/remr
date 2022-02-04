@@ -4,13 +4,13 @@
 #' Get Transects
 #'
 #' @param linestring A data.frame of sf_LINESTRING
-#' @param raster A raster of area
+#' @param raster A raster (digital elevation model (DEM))
 #' @param distance A \code{numeric} indicating distance between transects
-#' @param length A \code{numeric} indicating distance per point per transect
+#' @param length A \code{numeric} indicating the length of the transect
 #'
 #' @return A sfc_POINT data.frame with elevations along the transect as well as the linestring.
 #' @export
-#' @note Be aware of your crs as this will affect the length and distance arguments.
+#' @note Be aware of your crs projection as this will affect the length and distance arguments.
 #' @importFrom magrittr "%>%"
 #'
 #' @examples

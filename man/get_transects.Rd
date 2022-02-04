@@ -9,11 +9,11 @@ get_transects(linestring, raster, distance, length)
 \arguments{
 \item{linestring}{A data.frame of sf_LINESTRING}
 
-\item{raster}{A raster of area}
+\item{raster}{A raster (digital elevation model (DEM))}
 
 \item{distance}{A \code{numeric} indicating distance between transects}
 
-\item{length}{A \code{numeric} indicating distance per point per transect}
+\item{length}{A \code{numeric} indicating the length of the transect}
 }
 \value{
 A sfc_POINT data.frame with elevations along the transect as well as the linestring.
@@ -22,7 +22,7 @@ A sfc_POINT data.frame with elevations along the transect as well as the linestr
 Get Transects
 }
 \note{
-Be aware of your crs as this will affect the length and distance arguments.
+Be aware of your crs projection as this will affect the length and distance arguments.
 }
 \examples{
 \dontrun{
