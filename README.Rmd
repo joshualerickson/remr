@@ -40,22 +40,21 @@ devtools::install_github("joshualerickson/remr")
 
 This is a basic example which shows you how to solve a common problem: getting transects along a linestring and then extracting points on the linestring and transects.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
+
 library(remr)
-line <- mapedit::drawFeatures() %>% 
-  sf::st_transform(32612)
+
+pts = matrix(c(170800,172000, 5410500, 5410400), 2)
+line = sf::st_as_sf(sf::st_sfc(sf::st_linestring(pts), crs = 32612))
 
 ele <- elevatr::get_elev_raster(line, z = 13)
 terra::crs(ele) <- '+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs'
 
 rem <- get_transects(line, ele, distance = 100, length = 500)
 
-terra::plot(ele)
-plot(line$geometry, add = TRUE)
-plot(rem$geometry, add = TRUE)
-```
-
-```{r, echo = F}
-knitr::include_graphics('man/figures/ex_plot.png')
+ ele_crop <- terra::crop(terra::rast(ele), terra::vect(sf::st_buffer(line, 200)))
+ terra::plot(ele_crop)
+ plot(line$x, add = TRUE)
+ plot(rem$geometry, add = TRUE)
 ```
 
