@@ -39,6 +39,17 @@ get_transects <- function(linestring, raster, distance, length){
     raster = terra::rast(raster)
   }
 
+  if(nchar(terra::crs(raster))==0 && !is.na(sf::st_crs(line))) {
+    warning("No CRS specified for raster; assuming it has the same CRS as the polygons.")
+    terra::crs(raster) <- sf::st_crs(line)[[1]]
+  } else if(is.na(sf::st_crs(line)) && nchar(terra::crs(raster))!=0) {
+    warning("No CRS specified for line; assuming they have the same CRS as the raster.")
+    line <- sf::st_set_crs(sf::st_crs(raster)[[2]])
+  } else if(sf::st_crs(line)[[2]] != sf::st_crs(raster)[[2]]) {
+    warning("Points transformed to raster CRS (EPSG:", sf::st_crs(raster)[[1]], ")")
+    line <- sf::st_set_crs(sf::st_crs(raster)[[2]])
+  }
+
   vertices <- wk::wk_vertices(line)
 
   edges <- geos::as_geos_geometry(

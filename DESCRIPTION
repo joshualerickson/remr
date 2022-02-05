@@ -2,10 +2,14 @@ Package: remr
 Title: Relative Elevation Model in R
 Version: 0.0.0.9000
 Authors@R: 
-    person(given = "Josh", 
+    c(person(given = "Josh", 
            family = "Erickson", 
            role = c("aut", "cre"),
-           email = "joshualerickson@gmail.com")
+           email = "joshualerickson@gmail.com"),
+    person(given = "Mike",
+           family = "Johnson",
+           role = "ctb",
+           comment = c(ORCID = "0000-0002-5288-8350")))
 Description: Provides methods to get transects along a linestring. 
 URL: https://github.com/joshualerickson/remr/
 BugReports: https://github.com/joshualerickson/remr/issues/
@@ -22,4 +26,4 @@ Imports:
     terra,
     vctrs,
     wk
-Suggest: knitr,elevatr
+Suggests: knitr,elevatr,testthat
