@@ -105,6 +105,7 @@ plot(points, add = TRUE)
 #use nhdplus to get streams
 pt <- sf::st_as_sf(sf::st_sfc(sf::st_point(c(-115.074062, 48.741195))), crs = 4326) %>% 
                          dplyr::rename(geometry = 'x')
+
 streams <- gwavr::get_NLDI(pt)
 #> [1] "site_data is of class sf and has 1 features"        
 #> [2] "site_data is of class tbl_df and has 1 features"    
