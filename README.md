@@ -42,12 +42,11 @@ library(remr)
 pts = matrix(c(170800,172000, 5410500, 5410400), 2)
 line = sf::st_as_sf(sf::st_sfc(sf::st_linestring(pts), crs = 32612))
 
-ele <- elevatr::get_elev_raster(line, z = 13)
+ele <- elevatr::get_elev_raster(line, z = 13, prj = '+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs')
 #> Mosaicing & Projecting
 #> Note: Elevation units are in meters.
-terra::crs(ele) <- '+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs'
 
-rem <- get_transects(line, ele, distance = 100, length = 500)
+rem <- get_rem(line, ele, distance = 100, length = 500)
 
  ele_crop <- terra::crop(terra::rast(ele), terra::vect(sf::st_buffer(line, 200)))
  terra::plot(ele_crop)
@@ -56,3 +55,38 @@ rem <- get_transects(line, ele, distance = 100, length = 500)
 ```
 
 <img src="man/figures/README-unnamed-chunk-2-1.png" width="100%" />
+
+``` r
+ 
+#get resolution to make more points
+res <- terra::res(ele)
+rem <- get_rem(line, ele, distance = res[[1]], length = 500)
+
+#now convert to raster
+rem_rast <- rem_raster(rem, ele_crop, fun = 'mean', window = 3, na.rm = TRUE)
+
+terra::plot(rem_rast)
+plot(line, add = TRUE)
+```
+
+<img src="man/figures/README-unnamed-chunk-2-2.png" width="100%" />
+
+``` r
+ 
+transects <- get_transects(line, distance = 100, length = 500)
+
+terra::plot(ele_crop)
+plot(transects, add = TRUE)
+```
+
+<img src="man/figures/README-unnamed-chunk-2-3.png" width="100%" />
+
+``` r
+ 
+points <- get_transect_points(line, distance = 100, length = 500)
+
+terra::plot(ele_crop)
+plot(points, add = TRUE)
+```
+
+<img src="man/figures/README-unnamed-chunk-2-4.png" width="100%" />

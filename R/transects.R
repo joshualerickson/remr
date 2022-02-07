@@ -1,13 +1,11 @@
 #' @title Get Transects
 #'
 #' @param linestring A data.frame of sf_LINESTRING
-#' @param raster A raster (digital elevation model (DEM))
 #' @param distance A \code{numeric} indicating distance between transects
 #' @param length A \code{numeric} indicating the length of the transect
 #'
-#' @return A sfc_POINT data.frame with elevations along the transect as well as the linestring.
+#' @return A list with geos_geometry LINSTRINGS split by distance.
 #' @export
-#' @note Be aware of your crs projection as this will affect the length and distance arguments.
 #' @importFrom dplyr `%>%` bind_rows mutate left_join
 #' @importFrom geos as_geos_geometry geos_interpolate_normalized geos_interpolate geos_length geos_nearest
 #' @importFrom vctrs vec_c
@@ -18,37 +16,73 @@
 #'
 #' @examples
 #' \dontrun{
-#' line <- mapedit::drawFeatures() %>%
-#' sf::st_transform(32612)
-#' ele <- elevatr::get_elev_raster(line, z = 13)
-#' terra::crs(ele) <- '+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs'
+#' pts = matrix(c(170800,172000, 5410500, 5410400), 2)
+#' line = sf::st_as_sf(sf::st_sfc(sf::st_linestring(pts), crs = 32612))
 #'
-#' rem <- get_transects(line, ele, distance = 100, length = 500)
+#' transects <- get_transects(line, distance = 100, length = 500)
 #'
-#' ele_crop <- terra::crop(ele, terra::vect(sf::st_buffer(line, 200)))
+#' ele_crop <- terra::crop(terra::rast(ele), terra::vect(sf::st_buffer(line, 200)))
 #' terra::plot(ele_crop)
-#' plot(line$geometry, add = TRUE)
-#' plot(rem$geometry, add = TRUE)
+#' plot(transects)
 #' }
 #'
-get_transects <- function(linestring, raster, distance, length){
+get_transects <- function(linestring, distance, length){
+
+
+  transect <- get_pts_and_transects(linestring, distance, length)
+
+  transect[['transects']]
+}
+
+#' @title Get Points along Transects
+#'
+#' @param linestring A data.frame of sf_LINESTRING
+#' @param distance A \code{numeric} indicating distance between transects
+#' @param length A \code{numeric} indicating the length of the transect
+#'
+#' @return A list of geos_geometry POINTS along transects
+#' @export
+#' @examples
+#' \dontrun{
+#' pts = matrix(c(170800,172000, 5410500, 5410400), 2)
+#' line = sf::st_as_sf(sf::st_sfc(sf::st_linestring(pts), crs = 32612))
+#'
+#' points <- get_transects(line, distance = 100, length = 500)
+#'
+#' ele_crop <- terra::crop(terra::rast(ele), terra::vect(sf::st_buffer(line, 200)))
+#' terra::plot(ele_crop)
+#' plot(points)
+#' }
+get_transect_points <- function(linestring, distance, length){
+
+  pts_and_transects <- get_pts_and_transects(linestring, distance, length)
+
+  points <- purrr::map(pts_and_transects[['transects']], ~geos::geos_interpolate(geom = ., distance = seq(0, geos::geos_length(.), by = distance)))
+
+  sf_pt <- purrr::map(points, ~sf::st_as_sf(.))
+
+  names(sf_pt) <- 1:length(sf_pt)
+
+  for(i in 1:length(sf_pt)){
+    sf_pt[[i]] <- sf_pt[[i]] %>%
+      dplyr::mutate(transect = as.numeric(names(sf_pt)[[i]]))
+  }
+
+  sf_pt <- dplyr::bind_rows(sf_pt)
+
+
+}
+
+
+#' @title Get points and transects
+#' @description set-up function
+#' @param linestring A data.frame of sf_LINESTRING
+#' @param distance A \code{numeric} indicating distance between transects
+#' @param length A \code{numeric} indicating the length of the transect
+#'
+get_pts_and_transects <- function(linestring, distance, length){
 
   line <- geos::as_geos_geometry(linestring)
-
-  if(!inherits(raster, "SpatRaster")){
-    raster = terra::rast(raster)
-  }
-
-  if(nchar(terra::crs(raster))==0 && !is.na(sf::st_crs(line))) {
-    warning("No CRS specified for raster; assuming it has the same CRS as the polygons.")
-    terra::crs(raster) <- sf::st_crs(line)[[1]]
-  } else if(is.na(sf::st_crs(line)) && nchar(terra::crs(raster))!=0) {
-    warning("No CRS specified for line; assuming they have the same CRS as the raster.")
-    line <- sf::st_set_crs(sf::st_crs(raster)[[2]])
-  } else if(sf::st_crs(line)[[2]] != sf::st_crs(raster)[[2]]) {
-    warning("Points transformed to raster CRS (EPSG:", sf::st_crs(raster)[[1]], ")")
-    line <- sf::st_set_crs(sf::st_crs(raster)[[2]])
-  }
 
   vertices <- wk::wk_vertices(line)
 
@@ -59,42 +93,18 @@ get_transects <- function(linestring, raster, distance, length){
     )
   )
 
-  edges_midpoint <- geos::geos_interpolate_normalized(edges, 0.5)
+  edges_midpoint <- geos::geos_interpolate_normalized(edges[[1]], 0.5)
 
   points     <- geos::geos_interpolate(line, seq(0, geos::geos_length(line), by = distance))
-  which_edge <- geos::geos_nearest(points, edges)
-  transects  <- vctrs::vec_c(!!!Map(line_perpendicular_to_edge, points, which_edge, length = length, edges_midpoint, edges))
+  which_edge <- geos::geos_nearest(points, edges[[1]])
+  transects  <- vctrs::vec_c(!!!Map(line_perpendicular_to_edge, points, which_edge, length = length, edges_midpoint, edges[[1]]))
 
-  points <- purrr::map(transects, ~geos::geos_interpolate(geom = ., distance = seq(0, geos::geos_length(.), by = distance)))
+  pts_and_transects <- list(points, transects)
 
-  sf_pt <- purrr::map(points, ~sf::st_as_sf(.))
+  names(pts_and_transects) <- c('points', 'transects')
 
-  names(sf_pt) <- 1:length(sf_pt)
-
-  for(i in 1:length(sf_pt)){
-    sf_pt[[i]] <- sf_pt[[i]] %>%
-      dplyr::mutate(group = as.numeric(names(sf_pt)[[i]]))
-  }
-
-  sf_pt <- dplyr::bind_rows(sf_pt)
-
-  #points adjacent to linestring
-  elev_values <- terra::extract(raster, terra::vect(sf_pt))
-  sf_pt$elevation_adj <- elev_values[,2]
-
-  #points on linestring
-  sf_pts_main <- purrr::map(points, ~sf::st_as_sf(.))
-
-  sf_pts_main <-  dplyr::bind_rows(sf_pts_main) |>
-    dplyr::mutate(group = dplyr::row_number())
-
-  sf_pts_main$elevation_main <- terra::extract(raster, terra::vect(sf_pts_main))
-
-  dplyr::left_join(sf_pt, sf::st_drop_geometry(sf_pts_main), by = 'group')
-
+  pts_and_transects
 }
-
-
 
 #' @title Edge Transform Normal
 #' @param i iterator
