@@ -38,6 +38,15 @@ linestring and transects.
 
 ``` r
 library(remr)
+library(dplyr)
+#> 
+#> Attaching package: 'dplyr'
+#> The following objects are masked from 'package:stats':
+#> 
+#>     filter, lag
+#> The following objects are masked from 'package:base':
+#> 
+#>     intersect, setdiff, setequal, union
 
 pts = matrix(c(170800,172000, 5410500, 5410400), 2)
 line = sf::st_as_sf(sf::st_sfc(sf::st_linestring(pts), crs = 32612))
@@ -61,6 +70,7 @@ rem <- get_rem(line, ele, distance = 100, length = 500)
 #get resolution to make more points
 res <- terra::res(ele)
 rem <- get_rem(line, ele, distance = res[[1]], length = 500)
+
 
 #now convert to raster
 rem_rast <- rem_raster(rem, ele_crop, fun = 'mean', window = 3, na.rm = TRUE)
@@ -90,3 +100,46 @@ plot(points, add = TRUE)
 ```
 
 <img src="man/figures/README-unnamed-chunk-2-4.png" width="100%" />
+
+``` r
+#use nhdplus to get streams
+pt <- sf::st_as_sf(sf::st_sfc(sf::st_point(c(-115.074062, 48.741195))), crs = 4326) %>% 
+                         dplyr::rename(geometry = 'x')
+streams <- gwavr::get_NLDI(pt)
+#> [1] "site_data is of class sf and has 1 features"        
+#> [2] "site_data is of class tbl_df and has 1 features"    
+#> [3] "site_data is of class tbl and has 1 features"       
+#> [4] "site_data is of class data.frame and has 1 features"
+#> [1] "basin_boundary is of class sf and has 1 features"        
+#> [2] "basin_boundary is of class tbl_df and has 1 features"    
+#> [3] "basin_boundary is of class tbl and has 1 features"       
+#> [4] "basin_boundary is of class data.frame and has 1 features"
+#> [1] "UT is of class sf and has 28 features"        
+#> [2] "UT is of class tbl_df and has 28 features"    
+#> [3] "UT is of class tbl and has 28 features"       
+#> [4] "UT is of class data.frame and has 28 features"
+#> [1] "UM is of class sf and has 11 features"        
+#> [2] "UM is of class tbl_df and has 11 features"    
+#> [3] "UM is of class tbl and has 11 features"       
+#> [4] "UM is of class data.frame and has 11 features"
+ut <- streams$UT %>% sf::st_transform(32612)
+ele <- elevatr::get_elev_raster(ut, z = 13, prj = '+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs')
+#> Mosaicing & Projecting
+#> Note: Elevation units are in meters.
+
+rem2 <- ut %>% 
+  split(.$nhdplus_comid) %>%  
+  purrr::map(~get_rem(., ele, 6.31002, 500))
+
+
+raa <- rem2 %>% purrr::map(~rem_raster(., ele, window = 3, na.rm=TRUE))
+
+raa_tog <- terra::sprc(raa)
+t <- terra::mosaic(raa_tog)
+
+
+terra::plot(t)
+plot(ut$geometry, add = TRUE)
+```
+
+<img src="man/figures/README-unnamed-chunk-2-5.png" width="100%" />
