@@ -68,7 +68,7 @@ get_rem <- function(linestring, raster, distance, length){
   sf_pt$elevation_adj <- elev_values[,2]
 
   #points on linestring
-  sf_pts_main <- purrr::map(points, ~sf::st_as_sf(.))
+  sf_pts_main <- purrr::map(pts_and_transects[['points']], ~sf::st_as_sf(.))
 
   sf_pts_main <-  dplyr::bind_rows(sf_pts_main) |>
     dplyr::mutate(group = dplyr::row_number())
