@@ -4,7 +4,7 @@
 \alias{rem_raster}
 \title{REM Raster}
 \usage{
-rem_raster(rem, raster, fun = "mean", ...)
+rem_raster(rem, raster, fun = "mean", window = 3, ...)
 }
 \arguments{
 \item{rem}{A previously created \code{get_rem()} object}
@@ -13,6 +13,8 @@ rem_raster(rem, raster, fun = "mean", ...)
 
 \item{fun}{A function to use in \code{focal()} for NA's}
 
+\item{window}{Window size for \code{focal()}}
+
 \item{...}{Additional arguments for \code{focal()}}
 }
 \value{
@@ -20,6 +22,10 @@ A terra raster object.
 }
 \description{
 REM Raster
+}
+\note{
+The raw output of 'get_rem()' contains holes when converting to a raster. Thus, a
+focal function is used to clean up the holes.
 }
 \examples{
 \dontrun{
@@ -35,4 +41,5 @@ rem <- get_rem(line, ele, distance = 100, length = 500)
 rem_rast <- rem_raster(rem, ele, fun = 'mean', window = 3, na.rm = TRUE)
 
 }
+
 }

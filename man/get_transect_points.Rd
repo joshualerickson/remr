@@ -30,4 +30,5 @@ ele_crop <- terra::crop(terra::rast(ele), terra::vect(sf::st_buffer(line, 200)))
 terra::plot(ele_crop)
 plot(points)
 }
+
 }

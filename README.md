@@ -39,21 +39,11 @@ linestring and transects.
 ``` r
 library(remr)
 library(dplyr)
-#> 
-#> Attaching package: 'dplyr'
-#> The following objects are masked from 'package:stats':
-#> 
-#>     filter, lag
-#> The following objects are masked from 'package:base':
-#> 
-#>     intersect, setdiff, setequal, union
 
 pts = matrix(c(170800,172000, 5410500, 5410400), 2)
 line = sf::st_as_sf(sf::st_sfc(sf::st_linestring(pts), crs = 32612))
 
 ele <- elevatr::get_elev_raster(line, z = 13, prj = '+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs')
-#> Mosaicing & Projecting
-#> Note: Elevation units are in meters.
 
 rem <- get_rem(line, ele, distance = 100, length = 500)
 
@@ -103,6 +93,7 @@ plot(points, add = TRUE)
 
 ``` r
 #use nhdplus to get streams
+
 pt <- sf::st_as_sf(sf::st_sfc(sf::st_point(c(-115.074062, 48.741195))), crs = 4326) %>% 
                          dplyr::rename(geometry = 'x')
 
@@ -124,23 +115,53 @@ streams <- gwavr::get_NLDI(pt)
 #> [3] "UM is of class tbl and has 11 features"       
 #> [4] "UM is of class data.frame and has 11 features"
 ut <- streams$UT %>% sf::st_transform(32612)
-ele <- elevatr::get_elev_raster(ut, z = 13, prj = '+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs')
-#> Mosaicing & Projecting
-#> Note: Elevation units are in meters.
-
-rem2 <- ut %>% 
-  split(.$nhdplus_comid) %>%  
-  purrr::map(~get_rem(., ele, 6.31002, 500))
-
-
-raa <- rem2 %>% purrr::map(~rem_raster(., ele, window = 3, na.rm=TRUE))
-
-raa_tog <- terra::sprc(raa)
-t <- terra::mosaic(raa_tog)
-
-
-terra::plot(t)
-plot(ut$geometry, add = TRUE)
+ele <- elevatr::get_elev_raster(ut[1:5,], z = 13, prj = '+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs')
 ```
 
-<img src="man/figures/README-unnamed-chunk-2-5.png" width="100%" />
+``` r
+# run in parallel
+
+bm_rem <- microbenchmark::microbenchmark(
+  'normal' = ut[1:5,] %>% 
+  split(.$nhdplus_comid) %>%  
+  purrr::map(~get_rem(., ele, terra::res(ele)[[1]], 500)),
+  'parallel'  = {
+    library(future)
+    plan(multisession(workers = availableCores()-1))
+    ut[1:5,] %>% 
+  split(.$nhdplus_comid) %>%  
+  furrr::future_map(~get_rem(., ele,  terra::res(ele)[[1]], 500))
+  }, times = 5
+)
+
+ggplot2::autoplot(bm_rem) + 
+  ggplot2::labs(title = '5 NHDPLUS COMIDs (5 times each)') +
+  ggplot2::theme_bw()
+```
+
+<img src="man/figures/para.png" width="100%" />
+
+<br>
+
+**Below is a quick workflow to REMs**
+
+``` r
+# get elevations for each transect using rem
+
+pinkam <- ut[1:5,] %>% 
+  split(.$nhdplus_comid) %>%  
+  furrr::future_map(~get_rem(., ele,  terra::res(ele)[[1]], 500))
+
+# As of 2/9/2022 future_map crashes with one of the functions in rem_raster(), sorry...
+pinkham_rast <- pinkam[c(ut[1:5,]$nhdplus_comid)] %>% 
+                 purrr::map(~rem_raster(.,ele, na.rm = TRUE))
+
+raa_tog <- terra::sprc(pinkham_rast)
+t <- terra::mosaic(raa_tog)
+
+t_crop <- terra::crop(t, sf::st_buffer(ut[1:5,], 200))
+terra::plot(t_crop)
+plot(ut[1:5,]$geometry, add = TRUE)
+```
+
+<img src="man/figures/README-unnamed-chunk-5-1.png" width="100%" />

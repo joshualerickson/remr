@@ -28,10 +28,22 @@
 #'
 get_transects <- function(linestring, distance, length){
 
-
   transect <- get_pts_and_transects(linestring, distance, length)
 
-  transect[['transects']]
+  init_crs <- sf::st_crs(linestring)
+
+  transect <- purrr::map(transect, ~.x[['transects']])
+  transect <- unlist(transect,recursive=FALSE)
+
+  transect <- transect %>% purrr::map(~sf::st_as_sf(.)) %>%
+    data.table::rbindlist() %>%
+    dplyr::mutate(group = dplyr::row_number()) %>%
+    sf::st_as_sf() %>%
+    sf::st_set_crs(init_crs)
+
+  class(transect) <- c("sf", "data.frame")
+
+  transect
 }
 
 #' @title Get Points along Transects
@@ -53,29 +65,47 @@ get_transects <- function(linestring, distance, length){
 #' terra::plot(ele_crop)
 #' plot(points)
 #' }
+#'
 get_transect_points <- function(linestring, distance, length){
 
-  pts_and_transects <- get_pts_and_transects(linestring, distance, length)
+  pts_and_transects <- get_transects(linestring, distance, length)
 
-  points <- purrr::map(pts_and_transects[['transects']], ~geos::geos_interpolate(geom = ., distance = seq(0, geos::geos_length(.), by = distance)))
+  init_crs <- sf::st_crs(linestring)
 
-  sf_pt <- purrr::map(points, ~sf::st_as_sf(.))
+  sf_pt    <- pts_and_transects %>%
+              split(.$group) %>%
+              purrr::map(~pts_on_transects(., distance))
 
-  names(sf_pt) <- 1:length(sf_pt)
+  sf_pt    <- sf_pt %>%
+              data.table::rbindlist() %>%
+              sf::st_as_sf() %>%
+              sf::st_set_crs(init_crs)
 
-  for(i in 1:length(sf_pt)){
-    sf_pt[[i]] <- sf_pt[[i]] %>%
-      dplyr::mutate(transect = as.numeric(names(sf_pt)[[i]]))
-  }
+  class(sf_pt) <- c("sf", "data.frame")
 
-  sf_pt <- dplyr::bind_rows(sf_pt)
-
-
+  sf_pt
 }
 
+#' @title Points on transects
+#'
+#' @param pts_and_transects created with get_pts_and_transects
+#' @param distance A \code{numeric} indicating distance between transects
+#'
+#' @return Lists of sf_POINT data.frames
+pts_on_transects <- function(pts_and_transects, distance){
 
-#' @title Get points and transects
-#' @description set-up function
+    pts <- purrr::map(geos::as_geos_geometry(pts_and_transects), ~geos::geos_interpolate(geom = ., distance = seq(0, geos::geos_length(.), by = distance)))
+
+    pts <- purrr::map(pts, ~sf::st_as_sf(.)) %>%
+      data.table::rbindlist() %>%
+      dplyr::mutate(group = pts_and_transects$group)
+
+    sf_pt <- sf::st_as_sf(pts)
+}
+
+#' @title Get points on line
+#' @description set-up function for getting the points on the linestring
+#' where the transects cross
 #' @param linestring A data.frame of sf_LINESTRING
 #' @param distance A \code{numeric} indicating distance between transects
 #' @param length A \code{numeric} indicating the length of the transect
@@ -93,18 +123,40 @@ get_pts_and_transects <- function(linestring, distance, length){
     )
   )
 
-  edges_midpoint <- geos::geos_interpolate_normalized(edges[[1]], 0.5)
-
-  points     <- geos::geos_interpolate(line, seq(0, geos::geos_length(line), by = distance))
-  which_edge <- geos::geos_nearest(points, edges[[1]])
-  transects  <- vctrs::vec_c(!!!Map(line_perpendicular_to_edge, points, which_edge, length = length, edges_midpoint, edges[[1]]))
-
-  pts_and_transects <- list(points, transects)
-
-  names(pts_and_transects) <- c('points', 'transects')
+  pts_and_transects <- purrr::map(edges, ~ps_and_ts(., distance, length, line))
 
   pts_and_transects
 }
+
+
+#' ps and ts
+#'
+#' @param edges edges to process
+#' @param distance A \code{numeric} indicating distance between transects
+#' @param length A \code{numeric} indicating the length of the transect
+#' @param line A linestring
+#'
+ps_and_ts <- function(edges, distance, length, line){
+
+  points <- list()
+  transects <- list()
+
+  for(i in 1:length(edges)){
+  edges_midpoint <- geos::geos_interpolate_normalized(edges[[i]], 0.5)
+  pts     <- geos::geos_interpolate(edges[[i]], seq(0, geos::geos_length(line), by = distance))
+  which_edge <- geos::geos_nearest(pts, edges[[i]])
+
+  tran  <- vctrs::vec_c(!!!Map(line_perpendicular_to_edge, pts, which_edge, length = length, edges_midpoint, edges[[i]]))
+
+  transects <- append(transects, list(tran))
+  points <- append(points, list(pts))
+
+  }
+
+  pts_and_transects <- list('points' = points, 'transects' = transects)
+
+}
+
 
 #' @title Edge Transform Normal
 #' @param i iterator

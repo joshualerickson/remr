@@ -32,53 +32,66 @@ get_rem <- function(linestring, raster, distance, length){
     raster = terra::rast(raster)
   }
 
-  if(nchar(terra::crs(raster))==0 && !is.na(sf::st_crs(linestring))) {
-    warning("No CRS specified for raster; assuming it has the same CRS as the polygons.")
-    terra::crs(raster) <- sf::st_crs(linestring)[[1]]
-
-  } else if(is.na(sf::st_crs(linestring)) && nchar(terra::crs(raster))!=0) {
-    warning("No CRS specified for line; assuming they have the same CRS as the raster.")
-    linestring <- sf::st_set_crs(sf::st_crs(raster)[[2]])
-
-  } else if(sf::st_crs(linestring)[[2]] != sf::st_crs(raster)[[2]]) {
-    warning("Points transformed to raster CRS")
-    linestring <- sf::st_set_crs(sf::st_crs(raster)[[2]])
-  }
-
-
-  sf_crs <- sf::st_crs(linestring)
+  # potential error catching for and changing crs but for now just stop function
+  # if(nchar(terra::crs(raster))==0 && !is.na(sf::st_crs(linestring))) {
+  #   stop("No CRS specified for raster")
+  # } else if(is.na(sf::st_crs(linestring)) && nchar(terra::crs(raster))!=0) {
+  #   stop("No CRS specified for line")
+  # } else if(sf::st_crs(linestring)[[2]] != sf::st_crs(raster)[[2]]) {
+  #   stop("Points and raster CRS are not equal")
+  # }
 
   pts_and_transects <- get_pts_and_transects(linestring, distance, length)
 
-  points <- purrr::map(pts_and_transects[['transects']], ~geos::geos_interpolate(geom = ., distance = seq(0, geos::geos_length(.), by = distance)))
+  init_crs <- sf::st_crs(linestring)
 
-  sf_pt <- purrr::map(points, ~sf::st_as_sf(.))
+  transect <- purrr::map(pts_and_transects, ~.x[['transects']])
+  transect <- unlist(transect,recursive=FALSE)
 
-  names(sf_pt) <- 1:length(sf_pt)
+  transect <- transect %>% purrr::map(~sf::st_as_sf(.)) %>%
+    data.table::rbindlist() %>%
+    dplyr::mutate(group = dplyr::row_number()) %>%
+    sf::st_as_sf() %>%
+    sf::st_set_crs(init_crs)
 
-  for(i in 1:length(sf_pt)){
-    sf_pt[[i]] <- sf_pt[[i]] %>%
-      dplyr::mutate(group = as.numeric(names(sf_pt)[[i]]))
-  }
+  class(transect) <- c("sf", "data.frame")
 
-  sf_pt <- dplyr::bind_rows(sf_pt)
+  sf_pt    <- transect %>%
+    split(.$group) %>%
+    purrr::map(~pts_on_transects(., distance))
+
+  sf_pt    <- sf_pt %>%
+    data.table::rbindlist() %>%
+    sf::st_as_sf() %>%
+    sf::st_set_crs(init_crs)
+
+  class(sf_pt) <- c("sf", "data.frame")
 
   #points adjacent to linestring
   elev_values <- terra::extract(raster, terra::vect(sf_pt))
   sf_pt$elevation_adj <- elev_values[,2]
 
   #points on linestring
-  sf_pts_main <- purrr::map(pts_and_transects[['points']], ~sf::st_as_sf(.))
 
-  sf_pts_main <-  dplyr::bind_rows(sf_pts_main) |>
-    dplyr::mutate(group = dplyr::row_number())
+
+  sf_pts_main <- purrr::map(pts_and_transects, ~.x[['points']])
+
+  sf_pts_main <- unlist(sf_pts_main, recursive = FALSE)
+
+  sf_pts_main <- purrr::map(sf_pts_main,~sf::st_as_sf(.)) %>%
+    data.table::rbindlist() %>%
+    dplyr::mutate(group = dplyr::row_number()) %>%
+    sf::st_as_sf() %>%
+    sf::st_set_crs(init_crs)
+
+  class(sf_pts_main) <- c('sf', 'data.frame')
 
   elevation_main <- terra::extract(raster, terra::vect(sf_pts_main))
 
   sf_pts_main$elevation_main <- elevation_main[,2]
 
-  dplyr::left_join(sf_pt, sf::st_drop_geometry(sf_pts_main), by = 'group') |> sf::st_set_crs(sf_crs)
-
+  dplyr::left_join(sf_pt, sf::st_drop_geometry(sf_pts_main), by = 'group') %>%
+    sf::st_set_crs(init_crs)
 
 }
 
@@ -88,9 +101,12 @@ get_rem <- function(linestring, raster, distance, length){
 #' @param rem A previously created \code{get_rem()} object
 #' @param raster Raster used to generate \code{get_rem()}
 #' @param fun A function to use in \code{focal()} for NA's
+#' @param window Window size for \code{focal()}
 #' @param ... Additional arguments for \code{focal()}
 #'
 #' @return A terra raster object.
+#' @note The raw output of 'get_rem()' contains holes when converting to a raster. Thus, a
+#' focal function is used to clean up the holes.
 #' @export
 #'
 #' @examples
@@ -107,8 +123,9 @@ get_rem <- function(linestring, raster, distance, length){
 #' rem_rast <- rem_raster(rem, ele, fun = 'mean', window = 3, na.rm = TRUE)
 #'
 #' }
-rem_raster <- function(rem, raster, fun = 'mean', ...){
+#'
 
+rem_raster <- function(rem, raster, fun = 'mean', window = 3, ...){
 
   rem$rem <- rem$elevation_main-rem$elevation_adj
 
@@ -118,3 +135,5 @@ rem_raster <- function(rem, raster, fun = 'mean', ...){
 
 
 }
+
+

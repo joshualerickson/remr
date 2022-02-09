@@ -1,6 +1,6 @@
 Package: remr
 Title: Relative Elevation Model in R
-Version: 0.0.0.9000
+Version: 0.0.1
 Authors@R: 
     c(person(given = "Josh", 
            family = "Erickson", 
@@ -19,11 +19,13 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.2
 Imports: 
+    data.table,
     dplyr,
     geos,
     purrr,
     sf,
     terra,
     vctrs,
-    wk
-Suggests: knitr,elevatr,testthat
+    wk,
+    utils
+Suggests: knitr,elevatr,testthat, microbenchmark,future, furrr, ggplot2
